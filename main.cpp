@@ -1,18 +1,11 @@
 #include <iostream>
-#include <iomanip>
-#include <fstream>
 #include <inmarsatc.h>
 #include <audiofile.h>
-#include <bitset>
-#include <fstream>
 #include <alsa/asoundlib.h>
-#include <chrono>
-#include <ctime>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 
-#define BUFSIZE 4096
+#define BUFSIZE 2048
 #define TOLERANCE 9
 
 void printHelp() {
@@ -21,6 +14,9 @@ void printHelp() {
     std::cout << "Keys: " << std::endl;
     std::cout << "--help                                    - this help" << std::endl;
     std::cout << "--demod                                   - enable demodulator" << std::endl;
+    std::cout << "--demod-lo-freq <freq>                    - set demodulator low frequency. default: 500" << std::endl;
+    std::cout << "--demod-hi-freq <freq>                    - set demodulator high frequency. default: 4500" << std::endl;
+    std::cout << "--demod-cent-freq <freq>                  - set demodulator initial center frequency. default: 2600" << std::endl;
     std::cout << "--demod-stats                             - print demodulator statistics(frequency, etc...)" << std::endl;
     std::cout << "--demod-verbose                           - print demodulated frames as hex" << std::endl;
     std::cout << "--demod-source-file <file-path>           - select audiofile source for demodulator" << std::endl;
@@ -46,6 +42,45 @@ int parseArg(int argc, int* position, char* argv[], std::map<std::string, std::s
         return 0;
     } else if(arg1 == "--demod-verbose") {
         params->insert(std::pair<std::string, std::string>("demodVerbose", "true"));
+        return 0;
+    } else if(arg1 == "--demod-lo-freq") {
+        int nextpos = *position + 1;
+        if(nextpos > argc or recursive) {
+            return 1;
+        }
+        int parseRes = parseArg(argc, &nextpos, argv, params, true);
+        if(parseRes != 2) {
+            return 1;
+        }
+        *position = nextpos;
+        std::string arg2 = std::string(argv[nextpos]);
+        params->insert(std::pair<std::string, std::string>("demodLoFreq", arg2));
+        return 0;
+    } else if(arg1 == "--demod-hi-freq") {
+        int nextpos = *position + 1;
+        if(nextpos > argc or recursive) {
+            return 1;
+        }
+        int parseRes = parseArg(argc, &nextpos, argv, params, true);
+        if(parseRes != 2) {
+            return 1;
+        }
+        *position = nextpos;
+        std::string arg2 = std::string(argv[nextpos]);
+        params->insert(std::pair<std::string, std::string>("demodHiFreq", arg2));
+        return 0;
+    } else if(arg1 == "--demod-cent-freq") {
+        int nextpos = *position + 1;
+        if(nextpos > argc or recursive) {
+            return 1;
+        }
+        int parseRes = parseArg(argc, &nextpos, argv, params, true);
+        if(parseRes != 2) {
+            return 1;
+        }
+        *position = nextpos;
+        std::string arg2 = std::string(argv[nextpos]);
+        params->insert(std::pair<std::string, std::string>("demodCentFreq", arg2));
         return 0;
     } else if(arg1 == "--demod-source-file") {
         int nextpos = *position + 1;
@@ -165,7 +200,7 @@ inmarsatc::decoder::Decoder::decoder_result receiveDemodDataViaUdp(int sockfd, s
 }
 
 void printDemodFrameVerbose(inmarsatc::decoder::Decoder::decoder_result frame) {
-    std::cout << "demodulated frame: " << std::endl;
+    std::cout << "demodulated frame:               " << std::endl;
     std::cout << "  len: " << std::dec << frame.length << std::endl;
     std::cout << "  frameNumber: " << std::dec << frame.frameNumber << std::endl;
     std::cout << "  isReversedPolarity: " << std::dec << frame.isReversedPolarity << std::endl;
@@ -194,7 +229,7 @@ bool ifPacketIsMessage(inmarsatc::frameParser::FrameParser::frameParser_result p
 
 void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_result pack_dec_res, bool isFrameParserPrintAllPackets,  bool isFrameParserVerbose) {
     if(isFrameParserPrintAllPackets || ifPacketIsMessage(pack_dec_res)) {
-        std::cout << "packet:" << std::endl;
+        std::cout << "packet:                " << std::endl;
         std::cout << "  type: " << pack_dec_res.decoding_result.packetVars["packetDescriptorText"] << std::dec << " (" << std::hex << (uint16_t)pack_dec_res.decoding_result.packetDescriptor << ")" << std::endl;
         if(isFrameParserVerbose) {
             std::cout << "  frameNumber: " << pack_dec_res.decoding_result.frameNumber << std::endl;
@@ -537,6 +572,18 @@ int main(int argc, char* argv[]) {
         clientaddr.sin_port = htons(std::stoi(udpPort));
         clientaddr.sin_addr.s_addr=inet_addr(udpIp.c_str());
         inmarsatc::demodulator::Demodulator demod;
+        if(params.find("demodLoFreq") != params.end()) {
+            int loFreq = std::atoi(params["demodLoFreq"].c_str());
+            demod.setLowFreq(loFreq);
+        }
+        if(params.find("demodHiFreq") != params.end()) {
+            int hiFreq = std::atoi(params["demodHiFreq"].c_str());
+            demod.setHighFreq(hiFreq);
+        }
+        if(params.find("demodCentFreq") != params.end()) {
+            int centFreq = std::atoi(params["demodCentFreq"].c_str());
+            demod.setCenterFreq(centFreq);
+        }
         inmarsatc::decoder::Decoder decoder(TOLERANCE);
         int sockfd;
         if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
@@ -571,7 +618,7 @@ int main(int argc, char* argv[]) {
                 }
                 std::vector<inmarsatc::demodulator::Demodulator::demodulator_result> res = demod.demodulate(cbuf, framesRead);
                 if(isDemodStats) {
-                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "\r" << std::flush;
+                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "     \r" << std::flush;
                 }
                 if(res.size() > 0) {
                     for(int d = 0; d < (int)res.size(); d++) {
@@ -626,7 +673,7 @@ int main(int argc, char* argv[]) {
                 }
                 std::vector<inmarsatc::demodulator::Demodulator::demodulator_result> res = demod.demodulate(cbuf, received);
                 if(isDemodStats) {
-                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "\r" << std::flush;
+                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "     \r" << std::flush;
                 }
                 if(res.size() > 0) {
                     for(int d = 0; d < (int)res.size(); d++) {
@@ -702,7 +749,7 @@ int main(int argc, char* argv[]) {
                 }
                 std::vector<inmarsatc::demodulator::Demodulator::demodulator_result> res = demod.demodulate(cbuf, framesRead);
                 if(isDemodStats) {
-                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "\r" << std::flush;
+                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "     \r" << std::flush;
                 }
                 if(res.size() > 0) {
                     for(int d = 0; d < (int)res.size(); d++) {
@@ -728,6 +775,18 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         inmarsatc::demodulator::Demodulator demod;
+        if(params.find("demodLoFreq") != params.end()) {
+            int loFreq = std::atoi(params["demodLoFreq"].c_str());
+            demod.setLowFreq(loFreq);
+        }
+        if(params.find("demodHiFreq") != params.end()) {
+            int hiFreq = std::atoi(params["demodHiFreq"].c_str());
+            demod.setHighFreq(hiFreq);
+        }
+        if(params.find("demodCentFreq") != params.end()) {
+            int centFreq = std::atoi(params["demodCentFreq"].c_str());
+            demod.setCenterFreq(centFreq);
+        }
         inmarsatc::decoder::Decoder decoder(TOLERANCE);
         inmarsatc::frameParser::FrameParser frameParser;
         int demodUdpOutSockFd;
@@ -779,7 +838,7 @@ int main(int argc, char* argv[]) {
                 }
                 std::vector<inmarsatc::demodulator::Demodulator::demodulator_result> res = demod.demodulate(cbuf, framesRead);
                 if(isDemodStats) {
-                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "\r" << std::flush;
+                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "     \r" << std::flush;
                 }
                 if(res.size() > 0) {
                     for(int d = 0; d < (int)res.size(); d++) {
@@ -839,7 +898,7 @@ int main(int argc, char* argv[]) {
                 }
                 std::vector<inmarsatc::demodulator::Demodulator::demodulator_result> res = demod.demodulate(cbuf, received);
                 if(isDemodStats) {
-                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "\r" << std::flush;
+                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "     \r" << std::flush;
                 }
                 if(res.size() > 0) {
                     for(int d = 0; d < (int)res.size(); d++) {
@@ -925,7 +984,7 @@ int main(int argc, char* argv[]) {
                 }
                 std::vector<inmarsatc::demodulator::Demodulator::demodulator_result> res = demod.demodulate(cbuf, framesRead);
                 if(isDemodStats) {
-                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "\r" << std::flush;
+                    std::cout << "freq = " << demod.getCenterFreq() << " sync = " << (demod.getIsInSync() ? "true" : "false") << "     \r" << std::flush;
                 }
                 if(res.size() > 0) {
                     for(int d = 0; d < (int)res.size(); d++) {
