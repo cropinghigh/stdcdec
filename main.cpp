@@ -245,7 +245,9 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                 if(pack_dec_res.decoding_result.payload.presentation != PACKETDECODER_PRESENTATION_BINARY) {
                     for(int i = 0; i < (int)pack_dec_res.decoding_result.payload.data8Bit.size(); i++) {
                         char chr = pack_dec_res.decoding_result.payload.data8Bit[i];
-                        if(chr != '\n') {
+                        if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                            std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
+                        } else if(chr != '\n' && chr != '\r') {
                             std::cout << chr;
                         } else {
                             std::cout << std::endl << "         ";
@@ -392,8 +394,11 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                             std::cout << "  Short message: " << std::endl << "      ";
                             std::string shortMessage = pack_dec_res.decoding_result.packetVars["shortMessage"];
                             for(int k = 0; k < (int)shortMessage.length(); k++) {
-                                if(shortMessage[k] != '\n') {
-                                    std::cout << shortMessage[k];
+                                char chr = shortMessage[k];
+                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                    std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
+                                } else if(chr != '\n'  && chr != '\r') {
+                                    std::cout << chr;
                                 } else {
                                     std::cout << std::endl << "     ";
                                 }
@@ -409,8 +414,11 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                             std::cout << "  Short message: " << std::endl << "      ";
                             std::string shortMessage = pack_dec_res.decoding_result.packetVars["shortMessage"];
                             for(int k = 0; k < (int)shortMessage.length(); k++) {
-                                if(shortMessage[k] != '\n') {
-                                    std::cout << shortMessage[k];
+                                char chr = shortMessage[k];
+                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                    std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
+                                } else if(chr != '\n'  && chr != '\r') {
+                                    std::cout << chr;
                                 } else {
                                     std::cout << std::endl << "     ";
                                 }
@@ -426,9 +434,11 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                         std::cout << "  Message(" << (isBinary ? "hex" : "text") << "): " << std::endl << "     ";
                         if(!isBinary) {
                             for(int k = 0; k < (int)pack_dec_res.decoding_result.payload.data8Bit.size(); k++) {
-                                char c = pack_dec_res.decoding_result.payload.data8Bit[k];
-                                if(c != '\n') {
-                                    std::cout << c;
+                                char chr = pack_dec_res.decoding_result.payload.data8Bit[k];
+                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                    std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
+                                } else if(chr != '\n'  && chr != '\r') {
+                                    std::cout << chr;
                                 } else {
                                     std::cout << std::endl << "     ";
                                 }
@@ -474,9 +484,11 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                         std::cout << "  Payload(" << (isBinary ? "hex" : "text") << "): " << std::endl << "     ";
                         if(!isBinary) {
                             for(int k = 0; k < (int)pack_dec_res.decoding_result.payload.data8Bit.size(); k++) {
-                                char c = pack_dec_res.decoding_result.payload.data8Bit[k];
-                                if(c != '\n') {
-                                    std::cout << c;
+                                char chr = pack_dec_res.decoding_result.payload.data8Bit[k];
+                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                    std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
+                                } else if(chr != '\n'  && chr != '\r') {
+                                    std::cout << chr;
                                 } else {
                                     std::cout << std::endl << "     ";
                                 }
@@ -497,9 +509,11 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                         std::cout << "  Payload(" << (isBinary ? "hex" : "text") << "): " << std::endl << "     ";
                         if(!isBinary) {
                             for(int k = 0; k < (int)pack_dec_res.decoding_result.payload.data8Bit.size(); k++) {
-                                char c = pack_dec_res.decoding_result.payload.data8Bit[k];
-                                if(c != '\n') {
-                                    std::cout << c;
+                                char chr = pack_dec_res.decoding_result.payload.data8Bit[k];
+                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                    std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
+                                } else if(chr != '\n'  && chr != '\r') {
+                                    std::cout << chr;
                                 } else {
                                     std::cout << std::endl << "     ";
                                 }
