@@ -84,6 +84,7 @@ bool ifPacketIsMessage(inmarsatc::frameParser::FrameParser::frameParser_result p
     switch(pack_dec_res.decoding_result.packetDescriptor) {
         case 0xA3:
         case 0xA8:
+            return pack_dec_res.decoding_result.packetVars.find("shortMessage") != pack_dec_res.decoding_result.packetVars.end();
         case 0xAA:
         case 0xB1:
         case 0xB2:
@@ -231,7 +232,7 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                 case 0x92:
                     {
                         std::cout << "  loginAckLen: " << pack_dec_res.decoding_result.packetVars["loginAckLength"] << " dlFr: " << pack_dec_res.decoding_result.packetVars["downlinkChannelMhz"] << " les: " << pack_dec_res.decoding_result.packetVars["les"] << " stStartHex: " << pack_dec_res.decoding_result.packetVars["stationStartHex"] << std::endl;
-                        if(pack_dec_res.decoding_result.packetVars.find("stationCount") == pack_dec_res.decoding_result.packetVars.end()) {
+                        if(pack_dec_res.decoding_result.packetVars.find("stationCount") != pack_dec_res.decoding_result.packetVars.end()) {
                             std::cout << "  stationCnt: " << pack_dec_res.decoding_result.packetVars["stationCount"] << " Stations: ";
                             std::string stations = pack_dec_res.decoding_result.packetVars["stations"];
                             for(int k = 0; k < (int)stations.length(); k++) {
@@ -258,12 +259,12 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                 case 0xA3:
                     {
                         std::cout << "  msgId: " << pack_dec_res.decoding_result.packetVars["mesId"] << " sat: " << pack_dec_res.decoding_result.packetVars["satName"] << " les: " << pack_dec_res.decoding_result.packetVars["lesName"]<< std::endl;
-                        if(pack_dec_res.decoding_result.packetVars.find("shortMessage") == pack_dec_res.decoding_result.packetVars.end()) {
+                        if(pack_dec_res.decoding_result.packetVars.find("shortMessage") != pack_dec_res.decoding_result.packetVars.end()) {
                             std::cout << "  Short message: " << std::endl << "      ";
                             std::string shortMessage = pack_dec_res.decoding_result.packetVars["shortMessage"];
                             for(int k = 0; k < (int)shortMessage.length(); k++) {
-                                char chr = shortMessage[k];
-                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                char chr = shortMessage[k] & 0x7F;
+                                if((chr < 0x20 && chr != '\n' && chr != '\r')) {
                                     std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
                                 } else if(chr != '\n'  && chr != '\r') {
                                     std::cout << chr;
@@ -278,12 +279,12 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                 case 0xA8:
                     {
                         std::cout << "  msgId: " << pack_dec_res.decoding_result.packetVars["mesId"] << " sat: " << pack_dec_res.decoding_result.packetVars["satName"] << " les: " << pack_dec_res.decoding_result.packetVars["lesName"]<< std::endl;
-                        if(pack_dec_res.decoding_result.packetVars.find("shortMessage") == pack_dec_res.decoding_result.packetVars.end()) {
+                        if(pack_dec_res.decoding_result.packetVars.find("shortMessage") != pack_dec_res.decoding_result.packetVars.end()) {
                             std::cout << "  Short message: " << std::endl << "      ";
                             std::string shortMessage = pack_dec_res.decoding_result.packetVars["shortMessage"];
                             for(int k = 0; k < (int)shortMessage.length(); k++) {
-                                char chr = shortMessage[k];
-                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                char chr = shortMessage[k] & 0x7F;
+                                if((chr < 0x20 && chr != '\n' && chr != '\r')) {
                                     std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
                                 } else if(chr != '\n'  && chr != '\r') {
                                     std::cout << chr;
@@ -302,7 +303,7 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                         std::cout << "  Message(" << (isBinary ? "hex" : "text") << "): " << std::endl << "     ";
                         if(pack_dec_res.decoding_result.payload.presentation == PACKETDECODER_PRESENTATION_IA5) {
                             for(int i = 0; i < (int)pack_dec_res.decoding_result.payload.data8Bit.size(); i++) {
-                                char chr = pack_dec_res.decoding_result.payload.data8Bit[i] & 0b01111111;
+                                char chr = pack_dec_res.decoding_result.payload.data8Bit[i] & 0x7F;
                                 if((chr < 0x20 && chr != '\n' && chr != '\r')) {
                                     std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
                                 } else if(chr != '\n' && chr != '\r') {
@@ -354,8 +355,8 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                         std::cout << "  Payload(" << (isBinary ? "hex" : "text") << "): " << std::endl << "     ";
                         if(!isBinary) {
                             for(int k = 0; k < (int)pack_dec_res.decoding_result.payload.data8Bit.size(); k++) {
-                                char chr = pack_dec_res.decoding_result.payload.data8Bit[k];
-                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                char chr = pack_dec_res.decoding_result.payload.data8Bit[k] & 0x7F;
+                                if((chr < 0x20 && chr != '\n' && chr != '\r')) {
                                     std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
                                 } else if(chr != '\n'  && chr != '\r') {
                                     std::cout << chr;
@@ -379,8 +380,8 @@ void printFrameParserPacket(inmarsatc::frameParser::FrameParser::frameParser_res
                         std::cout << "  Payload(" << (isBinary ? "hex" : "text") << "): " << std::endl << "     ";
                         if(!isBinary) {
                             for(int k = 0; k < (int)pack_dec_res.decoding_result.payload.data8Bit.size(); k++) {
-                                char chr = pack_dec_res.decoding_result.payload.data8Bit[k];
-                                if((chr < 0x20 && chr != '\n' && chr != '\r') || chr > 0x7F) {
+                                char chr = pack_dec_res.decoding_result.payload.data8Bit[k] & 0x7F;
+                                if((chr < 0x20 && chr != '\n' && chr != '\r')) {
                                     std::cout << "(" << std::hex << (uint16_t)chr << std::dec << ")";
                                 } else if(chr != '\n'  && chr != '\r') {
                                     std::cout << chr;
