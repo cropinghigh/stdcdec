@@ -3,6 +3,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <map>
+#include <json.hpp> //https://github.com/nlohmann/json
+
+using json = nlohmann::json;
 
 void printHelp() {
     std::cout << "Help: " << std::endl;
@@ -10,7 +13,8 @@ void printHelp() {
     std::cout << "Keys: " << std::endl;
     std::cout << "--help                                    - this help" << std::endl;
     std::cout << "--verbose                                 - print all data for all parsed packets" << std::endl;
-    std::cout << "--in-udp <port>                           - input decoded frames via udp(default port: 15003)" << std::endl;
+    std::cout << "--in-udp <port>                           - input decoded frames via udp(default port: 15004)" << std::endl;
+    std::cout << "--out-udp <ip> <port>                     - output parsed packets via udp JSON(default: 127.0.0.1 15005)" << std::endl;
     std::cout << "--print-all-packets                       - parse data for any packets type(otherwise just message packets)" << std::endl;
     std::cout << "(one source should be selected)" << std::endl;
 }
@@ -25,7 +29,7 @@ int parseArg(int argc, int* position, char* argv[], std::map<std::string, std::s
         return 0;
     } else if(arg1 == "--in-udp") {
         std::string arg2;
-        arg2 = "15003";
+        arg2 = "15004";
         int nextpos = *position + 1;
         if(nextpos < argc and !recursive) {
             int parseRes = parseArg(argc, &nextpos, argv, params, true);
@@ -36,6 +40,31 @@ int parseArg(int argc, int* position, char* argv[], std::map<std::string, std::s
         }
         params->insert(std::pair<std::string, std::string>("frameparserSource", "udp"));
         params->insert(std::pair<std::string, std::string>("frameparserSourceUdpPort", arg2));
+        return 0;
+    } else if(arg1 == "--out-udp") {
+        std::string arg2;
+        std::string arg3;
+        arg2 = "127.0.0.1";
+        arg3 = "15005";
+        int nextpos = *position + 1;
+        if(nextpos < argc and !recursive) {
+            int parseRes = parseArg(argc, &nextpos, argv, params, true);
+            if(parseRes == 2) {
+                arg2 = std::string(argv[nextpos]);
+            }
+            *position = nextpos;
+            nextpos++;
+            if(nextpos < argc) {
+                parseRes = parseArg(argc, &nextpos, argv, params, true);
+                if(parseRes == 2) {
+                    arg3 = std::string(argv[nextpos]);
+                }
+                *position = nextpos;
+            }
+        }
+        params->insert(std::pair<std::string, std::string>("frameparserOutUdp", "true"));
+        params->insert(std::pair<std::string, std::string>("frameparserOutUdpIp", arg2));
+        params->insert(std::pair<std::string, std::string>("frameparserOutUdpPort", arg3));
         return 0;
     } else if(arg1 == "--print-all-packets") {
         params->insert(std::pair<std::string, std::string>("frameparserPrintAllPackets", "true"));
@@ -67,6 +96,10 @@ T& from_bytes( const std::array< char, sizeof(T) >& bytes, T& object )
     std::copy( std::begin(bytes), std::end(bytes), begin_object ) ;
 
     return object ;
+}
+
+void sendParserDataViaUdp(std::string data, int sockfd, sockaddr_in serveraddr) {
+    sendto(sockfd, data.c_str(), data.size(), 0, (const struct sockaddr *) &serveraddr, sizeof(serveraddr));
 }
 
 inmarsatc::decoder::Decoder::decoder_result receiveDemodDataViaUdp(int sockfd, sockaddr_in serveraddr) {
@@ -432,6 +465,22 @@ int main(int argc, char* argv[]) {
     }
     bool isFrameparserVerbose = params.find("frameparserVerbose") != params.end() && params["frameparserVerbose"] == "true";
     bool isFrameparserPrintAllPackets = params.find("frameparserPrintAllPackets") != params.end() && params["frameparserPrintAllPackets"] == "true";
+    bool isFrameparserOutUdp = params.find("frameparserOutUdp") != params.end() && params["frameparserOutUdp"] == "true";
+    sockaddr_in clientaddr;
+    int sockfd;
+    if(isFrameparserOutUdp) {
+        std::string udpIp = params["frameparserOutUdpIp"];
+        std::string udpPort = params["frameparserOutUdpPort"];
+        memset(&clientaddr, 0, sizeof(clientaddr));
+        // Filling server information
+        clientaddr.sin_family = AF_INET;
+        clientaddr.sin_port = htons(std::stoi(udpPort));
+        clientaddr.sin_addr.s_addr=inet_addr(udpIp.c_str());
+        if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+            std::cout << "Socket creation failed!" << std::endl;
+            return 1;
+        }
+    }
     if(params.find("frameparserSource") == params.end()) {
         std::cout << "Wrong/No source selected!" << std::endl;
         printHelp();
@@ -469,6 +518,33 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 printFrameParserPacket(pack_dec_res, isFrameparserPrintAllPackets, isFrameparserVerbose);
+                if(isFrameparserOutUdp) {
+                    if((isFrameparserPrintAllPackets || (ifPacketIsMessage(pack_dec_res))) && pack_dec_res.decoding_result.isDecodedPacket) {
+                        json j;
+                        j["frameNumber"] = pack_dec_res.decoding_result.frameNumber;
+                        j["timestamp"] = pack_dec_res.decoding_result.timestamp.time_since_epoch().count();
+                        j["packetDescriptor"] = pack_dec_res.decoding_result.packetDescriptor;
+                        j["packetLength"] = pack_dec_res.decoding_result.packetLength;
+                        j["decodingStage"] = pack_dec_res.decoding_result.decodingStage == PACKETDECODER_DECODING_STAGE_COMPLETE ? "Complete" : (pack_dec_res.decoding_result.decodingStage == PACKETDECODER_DECODING_STAGE_PARTIAL ? "Partial" : "None");
+                        j["payload"]["presentation"] = pack_dec_res.decoding_result.payload.presentation;
+                        std::ostringstream os;
+                        for(int i = 0; i < (int)pack_dec_res.decoding_result.payload.data8Bit.size(); i++) {
+                            char chr = pack_dec_res.decoding_result.payload.data8Bit[i] & 0b01111111;
+                            if((chr < 0x20 && chr != '\n' && chr != '\r')) {
+                                os << "(" << std::hex << (uint16_t)chr << std::dec << ")";
+                            } else if(chr != '\n' && chr != '\r') {
+                                os << chr;
+                            } else {
+                                os << std::endl;
+                            }
+                        }
+                        std::string payload_data = os.str();
+                        j["payload"]["data"] = payload_data;
+                        j["packetVars"] = pack_dec_res.decoding_result.packetVars;
+                        std::string data = j.dump();
+                        sendParserDataViaUdp(data, sockfd, clientaddr);
+                    }
+                }
             }
         }
     }
