@@ -9,6 +9,9 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "/usr/")
 endif()
 
+include(FindPkgConfig)
+pkg_check_modules(ALSA REQUIRED alsa)
+pkg_check_modules(AUDIOFILE REQUIRED audiofile)
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 add_executable(stdc_demod stdc_demod.cpp)
