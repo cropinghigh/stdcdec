@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <map>
 #include <cstring>
+#include <array>
 
 #define TOLERANCE 9
 
