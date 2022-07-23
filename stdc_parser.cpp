@@ -541,7 +541,7 @@ int main(int argc, char* argv[]) {
                         std::string payload_data = os.str();
                         j["payload"]["data"] = payload_data;
                         j["packetVars"] = pack_dec_res.decoding_result.packetVars;
-                        std::string data = j.dump();
+                        std::string data = j.dump(-1, ' ', false, json::error_handler_t::ignore);
                         sendParserDataViaUdp(data, sockfd, clientaddr);
                     }
                 }
