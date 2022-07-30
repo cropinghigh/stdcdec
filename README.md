@@ -51,7 +51,7 @@ Usage:
           --in-udp <port>        - receive demodulated symbols via udp, default argument=15003
           --out-udp <ip> <port>  - send decoded frames to specified ip and port, default arguments=127.0.0.1 15004
 
-      Note that exactly one source and one out arguments should be used.
+      Note that exactly one in and one out arguments should be used.
 
   3.  Run stdc_parser to extract packets and messages from the frames
 
@@ -62,5 +62,7 @@ Usage:
           --in-udp <port>        - receive decoded frames via udp, default argument=15003(should be changed to 15004)
           --out-udp <ip> <port>  - send parsed packets to specified ip and port in JSON, default arguments=127.0.0.1 15005
 
-      Note that exactly one source argument should be used
+      Note that exactly one in argument should be used
+
+    WARNING! All messages are directed to their recipients! If you're not the recipient, you should delete received message!
 
